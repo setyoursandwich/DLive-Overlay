@@ -350,33 +350,7 @@
 									percent = percent / 100;
 									voteHistory[author] = percent/100;
 									
-									let authorBox = document.querySelector(".author");
-									authorBox.innerHTML = author;
-									//select messagebox and append text
-									let imgNode = document.createElement('img');
-									let messageBox = document.querySelector(".message");
-									//append text
-									let message = 'voted for '+percent+ ' percent';
-									messageBox.innerHTML = message+'<br>';
-									//append image
-									imgNode.src = 'assets/images/vote.gif';
-									imgNode.style.width = "450px";
-									imgNode.style.height = "200px";
-									messageBox.appendChild(imgNode);
-									
-									//fade in the msg box 
-									
-									$("#msgWrapper").fadeToggle("slow", function(){
-										//play the message when fully visible
-										responsiveVoice.speak(author + " " +message, "Hindi Female", {onstart: function(){}, onend: function(){
-											let sound = new Audio('assets/audio/vote.mp3');
-											sound.play();
-											sound.addEventListener("ended", function(){
-												$("#msgWrapper").delay(1000).fadeToggle("slow");
-												isPlaying = false;
-											})
-										}});
-									});
+									overlay.speakAndShow(author, message + '<img src="assets/images/vote.gif">', author + " " +message, function(){}, function(){ isPlaying = false; });
 									i = votes.length;
 								}
 							}; 
