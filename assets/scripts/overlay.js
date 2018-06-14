@@ -4,7 +4,7 @@ let DLOverlay = function(){
 	
 	let author;
 	let voice;
-	let switcheroo = 1;
+	let switcheroo = 2;
 	
 	let isPlaying = false;
 	
@@ -29,9 +29,9 @@ let DLOverlay = function(){
 				"Content-Type": "application/json"
 			},
 			success: function(response){
-				//if( response !== undefined ){
+				if( response !== undefined ){
 					callback( response );
-				//}
+				}
 			}
 		})
 	}
@@ -48,11 +48,9 @@ let DLOverlay = function(){
 			switch( switcheroo ){
 				case 1: 
 					getContent( function(response){
+						
 						let voteList = response.result.votes;
-						
 						let newVotes = voteList.slice(votesHistory.length, voteList.length);
-						
-						console.log( newVotes );
 						
 						let recursiveSpeakAndShow = function(i){
 							
@@ -82,10 +80,22 @@ let DLOverlay = function(){
 					});
 					switcheroo = 2; break;
 				case 2: 
-					/*getContentReplies( function(response){
+					getContentReplies( function(response){
 						console.log( response );
-					});*/
-					switcheroo = 1; break;
+						
+						let replyList = response.result.discussions;
+						let newReplies = replyList.slice(messageHistory.length, replyList.length);
+						
+						let commenter = 
+						let message = 
+						
+						let recursiveSpeakAndShow = function(i){
+							//let commenter = newReplies['i']
+						}
+						
+						messageHistory = replyLists;
+					});
+					//switcheroo = 1; break;
 			}
 			
 			
