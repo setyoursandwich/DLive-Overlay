@@ -1,10 +1,12 @@
+"use strict";
+
 let DLOverlay = function(){
 			
 	let self = this;
 	
 	let author;
 	let voice;
-	let switcheroo = 2;
+	let switcheroo = 1;
 	
 	let isPlaying = false;
 	
@@ -64,9 +66,12 @@ let DLOverlay = function(){
 							
 							speakAndShow(voter, message + '<br><img src="assets/images/vote.gif">', voter + " " +message, function(){ }, function(){ 
 								
-								if( i < newVotes.length ){
+								if( i < newVotes.length-1 ){
 									let index = i+1;
+									console.log(newVotes.length)
 									recursiveSpeakAndShow( index );
+								}else{
+									switcheroo = 2;
 								}
 							});
 							
@@ -74,28 +79,53 @@ let DLOverlay = function(){
 						
 						if( newVotes.length > 0 ){
 							recursiveSpeakAndShow( 0 );
+						}else{
+							switcheroo = 2;
 						}
 						
 						votesHistory = voteList;
 					});
-					switcheroo = 2; break;
+					; break;
 				case 2: 
 					getContentReplies( function(response){
-						console.log( response );
 						
 						let replyList = response.result.discussions;
 						let newReplies = replyList.slice(messageHistory.length, replyList.length);
 						
-						let commenter = 
-						let message = 
+						console.log( newReplies );
+						
 						
 						let recursiveSpeakAndShow = function(i){
-							//let commenter = newReplies['i']
+							console.log( i )
+							let commenter = newReplies[i].author;
+							let message = newReplies[i].body;
+							
+							
+							for( let i = 0; i < votesHistory.length; i++ ){
+								console.log(votesHistory);
+								if(commenter === votesHistory[i]['voter'] ){
+									
+									speakAndShow(commenter, message, message, function(){}, function(){
+										if( i < newReplies.length ){
+											let index = i+1;
+											recursiveSpeakAndShow(index);
+										}
+									});
+									
+									break;
+								}
+								
+							}
+							
 						}
 						
-						messageHistory = replyLists;
+						if( newReplies.length > 0 ){
+							recursiveSpeakAndShow(0);
+						}
+						
+						messageHistory = replyList;
 					});
-					//switcheroo = 1; break;
+					switcheroo = 1; break;
 			}
 			
 			
@@ -106,14 +136,14 @@ let DLOverlay = function(){
 	let getContent = function( callback ){
 		apiCall('tags_api.get_active_votes', {
 			"author":"foreveraverage", 
-			"permlink":"250a7c76-6d74-11e8-a955-0242ac110003"
+			"permlink":"suggestion-don-t-know-how-to-use-that-leftover-5-dollar-on-steam-may-i-suggest-overlord"
 			}, callback);
 	}
 	
 	let getContentReplies = function( callback ){
 		apiCall('tags_api.get_content_replies',  {
 			"author":"foreveraverage", 
-			"permlink":"250a7c76-6d74-11e8-a955-0242ac110003"
+			"permlink":"suggestion-don-t-know-how-to-use-that-leftover-5-dollar-on-steam-may-i-suggest-overlord"
 		}, callback)
 	}
 	
