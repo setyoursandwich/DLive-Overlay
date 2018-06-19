@@ -1,17 +1,16 @@
 "use strict";
 
-let DLOverlay = function(){
+let DLOverlay = function(author, voice){
 			
 	let self = this;
 	
-	let author;
-	let voice;
-	let switcheroo = 1;
+	self.author = author;
+	self.voice = voice;
+
+	self.switcheroo = 1;
 	
-	let isPlaying = false;
-	
-	let votesHistory = []
-	let messageHistory = [];
+	self.votesHistory = []
+	self.messageHistory = [];
 	
 	//private methods
 	function apiCall(method, params, callback){
@@ -45,14 +44,15 @@ let DLOverlay = function(){
 	}
 	
 	let start = function() {
-		
-		setInterval(function(){
-			switch( switcheroo ){
+		let playing = false;
+		let loopChecking = setInterval(function(){
+			if( !playing ){
+				switch( self.switcheroo ){
 				case 1: 
 					getContent( function(response){
 						
 						let voteList = response.result.votes;
-						let newVotes = voteList.slice(votesHistory.length, voteList.length);
+						let newVotes = voteList.slice(self.votesHistory.length, voteList.length);
 						
 						let recursiveSpeakAndShow = function(i){
 							
@@ -65,50 +65,47 @@ let DLOverlay = function(){
 							
 							
 							speakAndShow(voter, message + '<br><img src="assets/images/vote.gif">', voter + " " +message, function(){ }, function(){ 
+								let sound = new Audio('assets/audio/vote.mp3');
+								sound.play();
 								
 								if( i < newVotes.length-1 ){
 									let index = i+1;
-									console.log(newVotes.length)
 									recursiveSpeakAndShow( index );
 								}else{
-									switcheroo = 2;
+									playing = false;
 								}
 							});
 							
 						}
 						
 						if( newVotes.length > 0 ){
+							playing = true;
 							recursiveSpeakAndShow( 0 );
-						}else{
-							switcheroo = 2;
 						}
-						
-						votesHistory = voteList;
+						self.votesHistory = voteList;
 					});
-					; break;
+					self.switcheroo = 2;
+					break;
 				case 2: 
 					getContentReplies( function(response){
 						
 						let replyList = response.result.discussions;
-						let newReplies = replyList.slice(messageHistory.length, replyList.length);
-						
-						console.log( newReplies );
-						
+						let newReplies = replyList.slice(self.messageHistory.length, replyList.length);
 						
 						let recursiveSpeakAndShow = function(i){
-							console.log( i )
 							let commenter = newReplies[i].author;
 							let message = newReplies[i].body;
 							
 							
-							for( let i = 0; i < votesHistory.length; i++ ){
-								console.log(votesHistory);
-								if(commenter === votesHistory[i]['voter'] ){
+							for( let i = 0; i < self.votesHistory.length; i++ ){
+								if(commenter === self.votesHistory[i]['voter'] ){
 									
 									speakAndShow(commenter, message, message, function(){}, function(){
 										if( i < newReplies.length ){
 											let index = i+1;
 											recursiveSpeakAndShow(index);
+										}else{
+											playing = false;
 										}
 									});
 									
@@ -120,15 +117,17 @@ let DLOverlay = function(){
 						}
 						
 						if( newReplies.length > 0 ){
+							playing = true;
 							recursiveSpeakAndShow(0);
 						}
 						
-						messageHistory = replyList;
+						self.messageHistory = replyList;
 					});
-					switcheroo = 1; break;
+					
+					self.switcheroo = 1;
+					break;
+				}
 			}
-			
-			
 		}, 2500)
 		
 	}
@@ -157,7 +156,6 @@ let DLOverlay = function(){
 		
 		$("#msgWrapper").fadeToggle( "slow", function(){
 			//play the message when fully visible
-			console.log( self.voice );
 			responsiveVoice.speak(spokenText, self.voice, {onstart: fadeInCallBack, onend: function(){
 				$("#msgWrapper").fadeToggle( "slow" ).delay( 1000 ).queue( fadeOutCallBack() );
 			}});
@@ -165,7 +163,6 @@ let DLOverlay = function(){
 	}
 	
 	return{
-		initialize:			initialize,
 		getContent:			getContent,
 		getContentReplies:	getContentReplies,
 		speakAndShow: 		speakAndShow,
