@@ -1,14 +1,18 @@
 "use strict";
 
-let DLOverlay = function(author, voice){
+let DLOverlay = function(author, permlink, voice){
 			
 	let self = this;
 	
 	self.author = author;
+	self.permlink = permlink;
 	self.voice = voice;
 	self.switcheroo = 1;
-	self.votesHistory = []
-	self.messageHistory = [];
+	self.votesHistory = [];
+	self.replyHistory = [];
+	self.playing = false;
+	
+	self.speakandshowQue = [];
 	
 	//private methods
 	function apiCall(method, params, callback){
@@ -35,117 +39,30 @@ let DLOverlay = function(author, voice){
 		})
 	}
 	
-	//public methods
-	let start = function() {
-		let playing = false;
-		let loopChecking = setInterval(function(){
-			if( !playing ){
-				switch( self.switcheroo ){
-					case 1: 
-						//mention the upvoters
-						getContent( function(response){
-							
-							let voteList = response.result.votes;
-							let newVotes = voteList.slice(self.votesHistory.length, voteList.length);
-							
-							let recursiveSpeakAndShow = function(i){
-								
-								let voter = newVotes[i]['voter'];
-								
-								let percent = newVotes[i]['percent'];
-								percent = percent / 100;
-								
-								let message = 'voted for '+percent+ ' percent';
-								
-								
-								speakAndShow(voter, message + '<br><img src="assets/images/vote.gif">', voter + " " +message, function(){ }, function(){ 
-									
-									if( i < newVotes.length-1 ){
-										let index = i+1;
-										recursiveSpeakAndShow( index );
-									}else{
-										playing = false;
-									}
-								});
-								
-							}
-							
-							if( newVotes.length > 0 ){
-								playing = true;
-								recursiveSpeakAndShow( 0 );
-							}
-							self.votesHistory = voteList;
-						});
-						self.switcheroo = 2;
-					break;
-					//text to speech text
-					case 2: 
-						getContentReplies( function(response){
-							
-							let replyList = response.result.discussions;
-							let newReplies = replyList.slice(self.messageHistory.length, replyList.length);
-							
-							let recursiveSpeakAndShow = function(i){
-								let commenter = newReplies[i].author;
-								let message = newReplies[i].body;
-								
-								
-								for( let i = 0; i < self.votesHistory.length; i++ ){
-									if(commenter === self.votesHistory[i]['voter'] ){
-										
-										speakAndShow(commenter, message, message, function(){}, function(){
-											if( i < newReplies.length ){
-												let index = i+1;
-												recursiveSpeakAndShow(index);
-											}else{
-												playing = false;
-											}
-										});
-										
-										break;
-									}
-									
-								}
-								
-							}
-							
-							if( newReplies.length > 0 ){
-								playing = true;
-								recursiveSpeakAndShow(0);
-							}
-							
-							self.messageHistory = replyList;
-						});
-						
-						self.switcheroo = 3;
-					break;
-				}
+	function playQue(){
+		//get the data
+		let sASPars = self.speakandshowQue.shift();
+		//call speakAndShow function
+		speakAndShow(sASPars.author, sASPars.writtenText, sASPars.spokenText, sASPars.fadeInCallBack, function(){
+			sASPars.fadeOutCallBack();
+			//data left? trigger this method again to chain it
+			if( self.speakandshowQue.length > 0){
+				playQue;
 			}
-		}, 2500)
+		})
 		
 	}
 	
-	let getContent = function( callback ){
-		apiCall('tags_api.get_active_votes', {
-			"author":"foreveraverage", 
-			"permlink":"suggestion-don-t-know-how-to-use-that-leftover-5-dollar-on-steam-may-i-suggest-overlord"
-			}, callback);
-	}
-	
-	let getContentReplies = function( callback ){
-		apiCall('tags_api.get_content_replies',  {
-			"author":"foreveraverage", 
-			"permlink":"suggestion-don-t-know-how-to-use-that-leftover-5-dollar-on-steam-may-i-suggest-overlord"
-		}, callback)
-	}
-	
 	let speakAndShow = function( author, writtenText, spokenText, fadeInCallBack, fadeOutCallBack ){
+		
+		console.log( arguments );
+		
+		//let the system know something is playing
+		self.playing = true;
 		//select authorBox and append author
-		let authorBox = document.querySelector(".author");
-		authorBox.innerHTML = author;
+		$(".author").html( author );
 		//select messagebox and append text
-		let messageBox = document.querySelector(".message");
-		messageBox.innerHTML = writtenText;
+		$(".message").html( writtenText );
 		//fade the message in
 		$("#msgWrapper").fadeToggle( "slow", function(){
 			//play the message when fully visible
@@ -155,16 +72,121 @@ let DLOverlay = function(author, voice){
 				sound.play();
 				//fade out when the audio is done and call the callback when fully completed
 				sound.addEventListener("ended", function(){
-					$("#msgWrapper").fadeToggle( "slow", fadeOutCallBack );
+					$("#msgWrapper").fadeToggle( "slow", 
+						function(){
+							//let the system know nothing is playing before calling the fadeOutCallBack
+							//calling the callback first can cause that we accidentally overwrite a playing put to true in the callback
+							self.playing = false;
+							fadeOutCallBack();
+						}
+					 );
 				})
 			}});
 		})
 	}
+
+	
+	//public methods
+	let start = function() {
+		let loopChecking = setInterval( function(){
+			if( !self.playing && self.speakandshowQue.length > 0 ){
+				playQue();
+			}
+			console.log( self.votesHistory );
+			switch( self.switcheroo ){
+				case 1: 
+					//mention the upvoters
+					getContent( function(response){
+						
+						let voteList = response.result.votes;
+						
+						//loop all object in response
+						for( let o of voteList ){
+							//check if we already triggered a show and speak with this upvote
+							let found = self.votesHistory.find( val => val == o.voter )?true:false;
+							
+							//if value doesn't exist this speak and show has not yet been displayed, add it to the handle list and to the play que  
+							if( found === false ){
+								//add it to the handled list
+								self.votesHistory.push( o.voter );
+								//get the voter
+								let voter = o.voter;
+								//get the percentage for which they vote
+								let percent = o.percent;
+								percent = percent / 100;
+								//add the percent to a custom message
+								let message = `voted for ${percent} percent`;
+								
+								//add it to the play que
+								addSpeakAndShow(voter, `${message}<br><img src="assets/images/vote.gif" style="width: 350px; height:200px;">`, `${voter} ${message}`, function(){ }, function(){});
+							}
+						}
+					});
+					self.switcheroo = 2;
+				break;
+				//text to speech text
+				case 2: 
+					getContentReplies( function(response){
+						
+						let replyList = response.result.discussions;
+						
+						//loop all object in response
+						for( let o of replyList ){
+							//if the message has been played or the author did not upvote the stream put found to true to not trigger the speak and show
+							let found = self.replyHistory.find( val => val == o.author ) || !self.votesHistory.find( val => val == o.author )?true:false;
+							
+							//if value doesn't exist and the author upvoted  add it to the handle list and to the play que  
+							if( found === false ){
+								//add it to the handled list
+								self.replyHistory.push( o.author );
+								//get the author
+								let commenter = o.author;
+								//get the message
+								let message = o.body;
+
+								//add it to the play que
+								addSpeakAndShow(commenter, message, message, function(){}, function(){});
+							}
+						}
+					});
+					
+					self.switcheroo = 1;
+				break;
+			}
+		}, 2500)
+		
+	}
+	
+	let getContent = function( callback ){
+		apiCall('tags_api.get_active_votes', {
+			"author": self.author, 
+			"permlink":self.permlink
+			}, callback);
+	}
+	
+	let getContentReplies = function( callback ){
+		apiCall('tags_api.get_content_replies',  {
+			"author":self.author, 
+			"permlink":self.permlink
+		}, callback)
+	}
+	
+	//add commands to the speakandshowQue
+	function addSpeakAndShow(author, writtenText, spokenText, fadeInCallBack, fadeOutCallBack){
+		let action = {
+			'author': 			author,
+			'writtenText': 		writtenText,
+			'spokenText': 		spokenText,
+			'fadeInCallBack':	fadeInCallBack,
+			'fadeOutCallBack': 	fadeOutCallBack
+		}
+		self.speakandshowQue.push( action );
+	}
 	
 	return{
-		getContent:			getContent,
-		getContentReplies:	getContentReplies,
-		speakAndShow: 		speakAndShow,
-		start:				start
+		getContent:					getContent,
+		getContentReplies:			getContentReplies,
+		addSpeakAndShow: 			addSpeakAndShow,
+		start:						start
 	}
 }
